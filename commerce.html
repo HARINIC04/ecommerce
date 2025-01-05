@@ -1,0 +1,202 @@
+// Setting up the project structure and files for an e-commerce website
+
+// Project dependencies
+// React, Redux, react-router-dom
+// Ensure these are installed: npm install react redux react-redux react-router-dom
+
+// index.js
+import React from 'react';
+import ReactDOM from 'react-dom';
+import { Provider } from 'react-redux';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import store from './store';
+import LandingPage from './pages/LandingPage';
+import ProductListingPage from './pages/ProductListingPage';
+import ShoppingCartPage from './pages/ShoppingCartPage';
+import Header from './components/Header';
+
+import './styles.css';
+
+const App = () => (
+  <Provider store={store}>
+    <Router>
+      <Header />
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/products" element={<ProductListingPage />} />
+        <Route path="/cart" element={<ShoppingCartPage />} />
+      </Routes>
+    </Router>
+  </Provider>
+);
+
+ReactDOM.render(<App />, document.getElementById('root'));
+
+// store.js
+import { configureStore } from '@reduxjs/toolkit';
+import cartReducer from './features/cart/cartSlice';
+
+const store = configureStore({
+  reducer: {
+    cart: cartReducer,
+  },
+});
+
+export default store;
+
+// features/cart/cartSlice.js
+import { createSlice } from '@reduxjs/toolkit';
+
+const initialState = {
+  items: [],
+  totalQuantity: 0,
+  totalPrice: 0,
+};
+
+const cartSlice = createSlice({
+  name: 'cart',
+  initialState,
+  reducers: {
+    addItem(state, action) {
+      const existingItem = state.items.find(item => item.id === action.payload.id);
+      if (existingItem) {
+        existingItem.quantity++;
+      } else {
+        state.items.push({ ...action.payload, quantity: 1 });
+      }
+      state.totalQuantity++;
+      state.totalPrice += action.payload.price;
+    },
+    removeItem(state, action) {
+      const index = state.items.findIndex(item => item.id === action.payload);
+      if (index >= 0) {
+        state.totalQuantity -= state.items[index].quantity;
+        state.totalPrice -= state.items[index].price * state.items[index].quantity;
+        state.items.splice(index, 1);
+      }
+    },
+    incrementItem(state, action) {
+      const item = state.items.find(item => item.id === action.payload);
+      if (item) {
+        item.quantity++;
+        state.totalQuantity++;
+        state.totalPrice += item.price;
+      }
+    },
+    decrementItem(state, action) {
+      const item = state.items.find(item => item.id === action.payload);
+      if (item && item.quantity > 1) {
+        item.quantity--;
+        state.totalQuantity--;
+        state.totalPrice -= item.price;
+      }
+    },
+  },
+});
+
+export const { addItem, removeItem, incrementItem, decrementItem } = cartSlice.actions;
+export default cartSlice.reducer;
+
+// components/Header.js
+import React from 'react';
+import { useSelector } from 'react-redux';
+import { Link } from 'react-router-dom';
+
+const Header = () => {
+  const totalQuantity = useSelector(state => state.cart.totalQuantity);
+
+  return (
+    <header>
+      <h1>Plant Store</h1>
+      <nav>
+        <Link to="/">Home</Link>
+        <Link to="/products">Products</Link>
+        <Link to="/cart">Cart ({totalQuantity})</Link>
+      </nav>
+    </header>
+  );
+};
+
+export default Header;
+
+// pages/LandingPage.js
+import React from 'react';
+import { Link } from 'react-router-dom';
+
+const LandingPage = () => (
+  <div className="landing-page">
+    <h2>Welcome to the Plant Store</h2>
+    <p>Your one-stop shop for beautiful houseplants.</p>
+    <Link to="/products" className="btn">Get Started</Link>
+  </div>
+);
+
+export default LandingPage;
+
+// pages/ProductListingPage.js
+import React from 'react';
+import { useDispatch } from 'react-redux';
+import { addItem } from '../features/cart/cartSlice';
+
+const products = [
+  { id: 1, name: 'Fern', price: 10, category: 'Indoor', image: 'fern.jpg' },
+  { id: 2, name: 'Cactus', price: 15, category: 'Succulents', image: 'cactus.jpg' },
+  { id: 3, name: 'Spider Plant', price: 12, category: 'Indoor', image: 'spider.jpg' },
+  { id: 4, name: 'Aloe Vera', price: 8, category: 'Succulents', image: 'aloe.jpg' },
+  { id: 5, name: 'Peace Lily', price: 20, category: 'Indoor', image: 'lily.jpg' },
+  { id: 6, name: 'Bonsai', price: 30, category: 'Miniatures', image: 'bonsai.jpg' },
+];
+
+const ProductListingPage = () => {
+  const dispatch = useDispatch();
+
+  return (
+    <div className="product-listing">
+      {products.map(product => (
+        <div key={product.id} className="product-card">
+          <img src={product.image} alt={product.name} />
+          <h3>{product.name}</h3>
+          <p>${product.price}</p>
+          <button onClick={() => dispatch(addItem(product))}>Add to Cart</button>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default ProductListingPage;
+
+// pages/ShoppingCartPage.js
+import React from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { incrementItem, decrementItem, removeItem } from '../features/cart/cartSlice';
+
+const ShoppingCartPage = () => {
+  const cartItems = useSelector(state => state.cart.items);
+  const totalPrice = useSelector(state => state.cart.totalPrice);
+  const dispatch = useDispatch();
+
+  return (
+    <div className="shopping-cart">
+      <h2>Shopping Cart</h2>
+      <ul>
+        {cartItems.map(item => (
+          <li key={item.id}>
+            <img src={item.image} alt={item.name} />
+            <h3>{item.name}</h3>
+            <p>${item.price}</p>
+            <p>Quantity: {item.quantity}</p>
+            <button onClick={() => dispatch(incrementItem(item.id))}>+</button>
+            <button onClick={() => dispatch(decrementItem(item.id))}>-</button>
+            <button onClick={() => dispatch(removeItem(item.id))}>Remove</button>
+          </li>
+        ))}
+      </ul>
+      <h3>Total: ${totalPrice.toFixed(2)}</h3>
+      <button className="btn">Coming Soon</button>
+      <button className="btn" onClick={() => window.location.href='/products'}>Continue Shopping</button>
+    </div>
+  );
+};
+
+export default ShoppingCartPage;
